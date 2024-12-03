@@ -1,0 +1,71 @@
+aws compute notes
+
+ec2 placement groups
+	partition placement group across availability zones
+		good for max resiliency of computer layer
+		instances across logical partitions no share of hardware
+		large distributed/replicated workloads
+			cassandra, kafka, hadoop
+	cluster placement groups - single AZ only
+		good for applications that need low latency high throughput or both
+	spread
+		small group of instances, reduce correlated failures (no shared hardware)
+
+aws fargate
+	serverless compute engine 
+	use with ecs to run containers without having to manage servers or ec2 clusters
+	supports windows nodes but only for ECS, does not support EKS
+
+ssh connection to ec2
+	port 22 needs to be open in security group
+	is the instance up
+	make sure username associated with ec2 instance emi is correct
+	verify ec2 key pairs assigned to the instance
+
+aws compute optimizer
+	recommends optimal aws resources for workloads
+		to reduce costs and improve performance
+	machine learning analyze historical utilization metrics
+	helps choose optimal config for three resource types
+		ec2, ebs, lambda
+
+application load balancer
+	route traffic to target groups
+	if all targets in one target group unhealthy, load balancer still distributes traffic across unhealthy targets
+		aws auto scaling replaces unhealthy targets. alb does not. 
+
+aws instance scheduler
+	automates starting and stopping of ec2 and rds instances
+	reduce costs by stopping resources not in use and start when capacity is needed
+
+aws serverless application repository
+	commonly used lambda functions
+
+auto scaling	
+	scheduled scaling
+	insufficientinstancecapacity error with auto scaling	
+		could be that limited availability in AZ. try purchasing capacity reservations in AZ of need
+
+ec2 instance with root ebs volume and one data ebs volume	
+	create an emi from this instance and launch, all data stored in ebs is preserved
+	
+amazon texttract
+	machine learning service applies optical character recognition (OCR) to extract text from documents
+
+amazon transcribe
+	service that uses deep learning auto speech recognition for speech to text conversions
+
+amazon comprehend
+	natural language processor derive insights from text 
+
+amazon rekognition 
+	image and video analysis 
+
+amazon elastic transcoder
+	convert media files on S3 into consumer playback required format
+
+amazon forecast
+	fully managed servicemachine learning to deliver forecast for any time series data sets
+
+aws xray	
+	use case: enable xray for lambda function, can collect and visualize interactions between lambda and s3 bucket

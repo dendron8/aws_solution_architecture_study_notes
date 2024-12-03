@@ -1,0 +1,179 @@
+aws networking
+
+aws vpn
+	can quickly connect vpc with on prem application
+	aws direct connect better long term solution for speed, reliability
+
+vpn tunnel can only be initiated from a customer gateway, not the virtual
+private gateway
+route table 
+direct connect - remote office to vpc
+vpc peering
+	can go cross region
+	no ip/cidr overlap between subnets
+	one to one connection 
+aws transit gateway allow all vpc and remote locations to talk to each other
+	accounts from different orgs can connect 
+centralized hub
+elastic ip address - persistent ip
+cant convert pooled ip to EIP
+stop/start ec2 with pooled public ip - ip address released, new ip allocated
+eni - virtual network card
+number of enis dependent on ec2 instance type
+associate network interface with subnet, attach to ec2 instance
+ENA - faster network connection - only for certain instance types
+vpc endpoints - connect vpc to aws services without gateway/direct conn/etc
+aws privatelink - 3rd party provide private links to their stuff in aws without public access
+can prevent sensitive data from public internet (compliance)
+cloudfront
+	distribute content (cache) to edge locations (300), regional edge caches (13)
+	helps speed up distribution of static and dynamic content (ex: video)
+	delivers content through edge locations
+aws origin shield
+cloudfront works with any public endpoint
+aws global accelerator - get udp/tcp from clients to specific endpoints
+	reduce latency from user to app to user
+	improve reliability and performance of applications
+	must select 2 ip addresses - can use your own
+	create a listener, associated with endpoint group (per region).. can add multiple groups
+	associate application endpoints (alb, nlb, ec2 or eip) can add multiple with weight
+route 53 - domain name registration, dns management, traffic mgmt
+	uses edge locations 
+	not region specific
+	routing policies
+		healthcheck - can verify tiers (app, db, etc) can also monitor cloudwatch alarm
+			intended for dns failiover
+			do not track metrics
+		simple - a record to one or more ip addresses
+		weighted - assign each record a value
+		geolocation - records tagged by contintent/country/default
+		geoproximity = traffic flow traffic policy combines one or more routing policies
+			based on distance and/or bias only if you use traffic flow
+		failover - redirect from primary record to secondary record based on healthcheck
+		latency - choose record with lowest latency for record
+		multivalue answer - return healthy hosts 
+	public or private hosted zones
+	a record - map host to ip
+	aaaa record - ipv6
+	mx - email server
+	txt - 
+	cname - map host to host - multiple host names one server
+	alias - acts like cname, custom host name to aws resource
+	apex - naked domain, highest level domain abc.com
+	traffic flow - configure multiple policies hundreds of records
+	route 53 resolver forwarding rules
+	dns firewall rule group configure traffic from vpc query
+	recovery controller - monitor applications ability to recover .. readiness check
+		check asg ec2 ebs elbs rds ensure env is scaled configured for failure
+		routing control - shift traffic (auto, manual)
+	use case: provide solution to use dns names instead of ip addresses for connections from devop/sysop...
+		deploy a private hosted zone on route 53 and assign A record to each ec2 instance
+
+subnets: used to segment your vpc into multiple networks
+	has its own ip range that falls into vpc cidr range
+	can be public or private
+	public: accessible outside vpc
+	resources in public subnet must have public ip address
+	public subnets require internet gateway and route pointing to it
+	resources in private subnet inaccessible from internet
+	subnets are per AZ
+	
+security groups
+	filter traffic inbound and outbound at instance level
+	all rules in group assessed before decision made
+	no deny rules... allow rules only
+	inbound and outbound rule sets
+	stateful
+	if an instance is a ssigned to two or more security groups, the allow rules for all will apply,
+		and the broader allow rules will override the narrower allow rules
+	
+nacls
+	virtual network level firewalls associated to subnet
+	control ingress and egress between subnets
+	default allows all traffic
+	need to configure return traffic
+	rule numbers
+	read in rule order
+	stateless
+	can associate with multiple subnets
+	cant associate two with a subnet
+	
+internet gateway
+	attached to vpc
+	gateway between vpc and internet
+	
+nat gateway
+	sits in public subnet with eip
+	allows private resources access to internet
+	need route to gateway from private subnet
+	block all incoming from internet
+	costs:
+		hourly 
+		data processing
+		data transfer
+	if heavy traffic from private subnet to non-aws resources, 
+		consider moving to public subnet to reduce cost
+
+vpn (gateway)
+	vpc to vpc communications to datacenter
+	attach virtual gateway to vpc
+	add customer gateway to datacenter
+	customer gateway has endpoint attached to vpg
+	dynamic or static routing
+	tunnel between two endpoints initiated from customer gateway
+	configure routing 
+	over internet
+
+egress only internet gateway
+	deployed in front of a vpc, in place of an internet gateway, for ipv6 addresses
+	
+direct connect
+	private connection between data center and aws region (not just a vpc)
+	data center to aws partner with dedicated link 
+	separate building from data center
+	private virtual interfaces to virtual gateway in vpc
+	public virtual interfaces to aws region to access aws resources (s3)
+	high speed network to aws
+	over private network (does not use public internet)
+	
+vpc endpoints
+	interface endpoint - eni with private ip to aws service
+	gateway endpoint - target in route table to dynamo/s3
+	
+eip/eni/ena
+	high speed for linux compute - ena elastic network adapter
+	intel 82599 virtual function interface
+	persistent public ip - eip
+	extra network interface for multiple subnets for ec2 - eni 
+	if application fails in a vpc, make sure you have a standby instance,
+		attach an eni to the instance, then move the eni to the standby instance	
+		if the primary becomes unreachable
+	
+a vpn connection creates a secure tunnel between onsite and aws networks
+ENA can improve instance network performance and is no cost
+to implement direct connect you need a connection and a virtual interface
+custom http headers secure connection between cloudfront distro and alb
+
+vpc reachability analyzer
+	configuration analysis tool 
+	performs connectivity testing between resources in vpcs
+	
+vpc network analyzer
+	identifies unintended network access to resources
+	specify network access requirements and identify paths that dont meet req
+
+aws direct connect 
+	good choice for long term and/or if dedicated network connection / high bandwidth / consistent performance needed
+aws site to site vpn	
+	good choice for short term, bandwidth requirementslow/moderate, uses existing internet connection
+elastic fabric adapters (EFA)
+	specialized elastic network adapter that improves networking and processing speed to facilitate parallelism
+	supported by multiple instance types
+
+network load balancer use case
+	cross zone balancing enabled
+	target group with 10 instances, 4 in az1 6 in az2
+	load is balanced evenly across instances in target group regardless of az
+
+vpc peering	
+	check nacls and routing tables if connectivity issues

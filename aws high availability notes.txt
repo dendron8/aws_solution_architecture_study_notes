@@ -1,0 +1,261 @@
+high availability notes
+
+design for failure
+az != datacenter
+geographical azs is a region 
+alb to distribute web traffic
+primary/secondary rds
+auto scaling groups for web servers
+RTO recovery time of operations
+RPO recovery point objective
+
+route 53 and cloudfront in front of albs
+longer rto
+	implement schedule for snapshot of rds
+	copy snapshot to dr region
+shorter rto
+	aws data transfer
+	
+max tolerance of business impact established by rto rpo
+rto max time service unavailable before biz damage
+rpo max time data lost for service
+
+establish rto/rpo
+	backup and restore - highest rto/rpo rto 24 or less, rpo in hours
+	pilot light - rto hours rpo minutes
+	warm standby rto minutes rpo seconds
+	multi site active/active - rtp/rpo close to zero
+
+classify rto/rpo
+	assess each application individually
+	aws provides networking/routing/dns/etc
+	what are repercussions of lost application
+	what are costs financial/reputation
+	is there an sla
+	is app dependency to other apps
+	can data be recreated, quicker than restore?
+	how often does data change (backup schedule)
+	aws resilience hub 
+	
+backup and restore strategy
+	only for services that are low biz impact
+	measured rto < 24hrs, rpo hours
+	point in time recovery db/storage
+		snapshot backup
+	aws backup - cross aws services
+		central hub cross region full audit/compliance
+		uses backups from existing services
+		backup policies
+			schedule
+			window lifecycle
+			vault regional copies
+			tags
+		dlm automate snapshot replication to another region
+		
+pilot light
+	continuout replication between regions
+	core infra in dr region
+	dr is in more developed state than backup/restore
+	lower rpo
+	continuous replication service features
+		s3 cross region replication
+		rds cross region read replicas
+		aurora global db
+		dynamo global tables
+		documentdb global clusters
+		global datastore elasticache for redis
+	aws cloud formation
+	route 53 to elbs in each region - one active, one inactive
+	active elb distribute cross az auto scaling group servers
+	route 53 healthcheck fail, reroute to inactive
+	always on - dr servers switched off and ready to provision in disaster
+	
+warm standby
+	pilot light features
+	adds scaled down of primary resources in dr
+	dr already running
+	same services as other strategies for replication
+	
+multi site active/active
+	cost most, lowest rto/rpo
+	deployed full scale cross region - not a real dr
+	both regions running workload via route 53
+	still need to test - can region handle load
+	maintaining backups still 
+	
+high availability vs fault tolerance
+	ha maintaining percentage of up time - sla
+	fault tolerance more resiliency than ha add cost
+	ha: cross AZ, fault tolerance: cross region
+	
+aws storage gateway for on premise backup
+	dc to aws
+	installed on dc
+	virtual machine downloaded
+	file gateway files as objects in s3 mount drives to s3 bucket
+		shown as nfs file system locally
+	volume gateway stored and cahed
+		stored: backup local to s3
+			remains on prem mapped to scsi 
+			async to s3 as ebs snapshot
+			1gb - 16tb 
+			buffer using on prem storage
+			ssl upload 
+			snapshots taken any time as ebs in s3
+			good for when recover local using AMIs
+		cached: local data storage buffer
+			primary is s3
+	tape gateway VTL
+		back up to s3, glacier for archiving
+		replace physical with vvirtual
+		use existing tape backup 
+		storage gateway
+		virtual tapes backed by s3 tape drives presented as iscsi
+		media changer to backup apps between tape drive and vtl
+		
+rds multi az
+	secondary rds replica in different az
+	replication is syncrhonous
+	oracle mysql mariadb postgresql
+	failover is automatic
+	dns record updated 60-120 seconds depending on activity/size
+	failover: patching, host fail, az fail, reboot, db instance modified
+	even triggered at failure
+		can configure sns/sms/etc to notify
+	sql server failover with sql server mirroring - secondary instance
+		prim/sec same endpoint
+		db subnet 2 minumum AZs
+	aurora clusters fault tolerant by default 
+		up to 10 minutes for auto fault recovery
+		enable multi az on cluster, no 10 minute wait
+		
+rds read replicas
+	not backup failover
+	mysql maria postgres only
+	can deploy in different region
+	can promote rr to replace primary
+	no nested read replicas with postgres
+	
+aurora ha options
+	mysql and postgres
+	separate compute and storage layers
+	storage shared across cluster volume
+		master and replica same storage, replication not needed
+	quorum and gossip protocol self healing data
+	6 way replicated storage 3 az
+	auto and manual failover master 30 seconds
+	cluster endpoint - master read write
+	reader endpoint - load balance reads
+	custom endpoints - group cluster role or task
+	instance endpoint - cluster instance
+	dont cache client endpoint londer than ttl
+	read replicas can be same different az region
+	tag for replica to promote
+	daily backup - 35 day retention
+
+aurora global databases
+	spans multiple regions
+	low latency global reads 
+	fast recover from outages for a region
+	primary db cluster in one region, up to 5 secondary db clusters in different regions
+	
+aurora multi master
+	config - multi writer option
+	cant add read replicas
+	manual client side load balancing
+	deploy into multi az vpc
+	only option that offers continuous availability
+	limited to a single region
+	
+aurora serverless
+	auto scale compute layer
+	configure capacity units
+	when compute off only pay for storage
+	single endpoint read write
+	web service data api feature
+		http web service 
+		no jdbc needed
+		easy to set up lambda
+	cli can run queries (aws rds-data command)
+	restores to new serverless db cluster
+	auto backups
+	
+dynamodb ha options
+	three azs across a region
+	db partition replicated auto by aws
+	synchronous replication
+	dial up down provisioned throughput
+	cross region replication option (global tables)
+	apps can use data locality closest geo loc low latency
+	global tables
+		multi master read write capability eventual consistency
+		existing tables can be converted to global
+		
+dynamodb on demand backup and restore
+	through dynamodb console or cli
+	useful for corruption or compliance or audit or testing
+	backups stay until deleted
+
+dynamodb dax accelerator
+	in memory cache improve read performance
+	writes go to dynamo first then dax
+	reads go to dax first then dynamo
+	located in vpc subnets
+	doesnt do write/delete
+	
+dynamodb point in time recovery
+	enhanced on demand backup
+	useful if data mods didnt work
+	operates at table level
+	time between now and 35 days ago
+	needs to be enabled
+	performed into a new table - same or diff region
+	
+migration large amount of objects - aws datasync
+	need fast connection like direct connect
+	datasync agent on prem - nfs/smb/s3/api
+	goes to s3, efs or fsx for windows
+	use snowball if not fast connection
+	
+migrate from oracle or sql server - aws db migration service to rds
+	simple way to transfer schemas/data
+	
+getting data in/out of aws
+	direct connect 
+	vpn
+	internet
+	aws snow
+	aws storage gateway
+	if data will take > 1 week to transfer, use snowball
+	if data > 50tb, use snowball
+	
+ebs s3 glacier for storage persistence
+	glacier bulk retrieval 5-12 hrs, flex retrieval expedited 1-5 min
+	
+efs/fsx for windows 
+lift/shift cluster (oracle/redhat) - use ebs multi attach
+migrate need high io  - use nitro with multi attach
+cross region replication for DR reduces latency of retrievals and compliance
+
+multipart uploads improve performance speed throughput
+	interruption recovery 
+	management of data
+	
+aws snowball device
+	data encrypted by default with kms keys, hipaa compliant
+	
+storage gateway - device downloaded to internal
+	file gateway - s3, shown as nfs share, https 
+	volume gateway - encrypted sse-s3, snapshots
+		stored - scsi, data first stored on prem - copy async to s3
+		cached - data first stored on s3, cache buffer on prem, scsi
+	tape gateway - data on s3, scsi
+	
+secondary dbs
+	minimize data loss (read replicas do not do this)
+	do not process traffic 
+	
+
+		
+		
+	

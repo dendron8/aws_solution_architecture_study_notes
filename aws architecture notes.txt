@@ -1,0 +1,454 @@
+aws architecture notes
+
+decoupled vs event driven architectures
+	decoupled - components/services that can operate independently
+	event driven - services triggered by event
+		change of state
+		producer, event router, consumer
+	
+aws step functions
+	orchestration and transparency with lambda
+	state machine service
+	create workflows
+	can run in parallel, in sequence, in retry, if/then
+	read state language file (json) with states
+	states
+		pass - debugging state
+		task - work happens
+		choice - given input, choose output
+		wait - pause until time or state
+		success - end or move on
+		fail - error message/cause
+		parallel - multiple tasks, collect from each 
+		map - for loop for processing data
+	async callbacks
+		mgmt approval etc
+	can nest child state machine within parent state machines
+	
+decoupling with queueing
+	when message is picked up, visibility timer starts
+	when visibility timeout active, message not returned when request is made
+	delay queue - delay delivery for x seconds
+	default visibility 30 seconds
+		increase if message processing takes longer
+		can be set for queue or individual message
+	if consumer needs > 12 hrs to process message, use aws step function
+	consumer listen types
+		short polling (default)
+			consumer gets response even if no messages
+			occurs when wait time for receive is 0
+				receivemessage sets to 0
+				receivemessagewaittimeseconds set to 0
+		long polling
+			receivemessage set 0 < waittimeseconds < 20 or
+			receivemessagewaittimeseconds queue attribute > 0
+				sqs sends response after collecting at least 1 message and
+					up to max for maxnumberofmessages
+	message limit 256k
+		if message bigger, use extended library and s3
+	no order of messages
+	at least once delivery
+	fifo queue for exactly once delivery
+	if message corrupt, dead letter queue
+		maxreceivecount has been hit (avoid cycle)
+		dead letter queue redrive after fix message 
+			breaks fifo order
+			monitor dlq and sns
+			
+sns
+	pub/topic/sub
+	no storage like queues
+	push notification messages
+		apple
+		windows
+		aws
+		http/s
+		email
+		lambda
+		sms
+	can use with sqs to push message to multiple
+	sns extended client for messages > 256k
+	uses s3 to store payload, publish object reference to topic
+	sqs extended lib for java retrieve payloads from s3
+	lambda/others use payload offloading java lib for s3
+	messages filtering with json policy which messages to send to whom
+		allows for single topic
+	can use sqs dlq
+	to send same sns message to multiple queues, create topic then subscribe sqs queues to topic
+	s3 buckets are event aware, can trigger to sns
+	
+sns vs sqs
+	sns time critical push to multiple subscribers (passive)
+	sqs polling model sender receiver decoupled
+		components can be unavailable (message persistency)
+		
+advanced sns with fifo sns topics
+	use cases
+		bank transaction logs
+		flight trackers
+		price updates
+		news broadcasting
+		inventory management
+	can achieve idempotency (same result every time)
+		can include message group id when sending message to sns fifo topic
+		messages are delivered in order of arrival
+	can avoid duplicate messages
+		enable content based message deduplication (checkbox in aws)
+			makes sns generate sha256 deduplication id
+			any dups accepted but not delivered
+			if deliver to sqs fifo, used to avoid sending dup messages from queue
+	write/modify ops need design in applications for idempotent
+		add message id for order
+		implement code to remove duplicates
+		
+migrating existing queues/topics 
+	amazon mq service - migrate without changing code
+	integrates with cloudwatch/cloudtrail
+	
+real time messaging - kinesis and data streams
+	keeps order
+	real time data collection messaging service
+	stream - 1 or more shards
+	consumers process with kinesis client library
+		uses dynamodb
+	kms master keys for encryption
+	use case: stock market, home surveillance 
+	increase stream capacity by adding shards
+	shard data: partition key, sequence number, actual data
+	capacity: on demand, provisioned
+	pay per shard capacity 
+	
+kinesis data firehose
+	send to s3/dynamo/emr/splunk/newrelic/dynatrace/etc
+	fully managed, replicate across 3 regions auto scale
+	stores data for up to 24hrs when delivery destination unavailable
+	does not use shards
+	expect up to 60 second latency
+	pay for amount of data
+	kinesis agent java 
+	near real time (buffered, then deliver)
+	lambda can translate data
+	
+kinesis data analytics
+	sql to datastream/firehose
+	real time analysis, populate dashboards
+	fully managed
+	kinesis data analytics studio to edit
+	cost is data consumption rate
+	
+fundamentals of stream processing
+	some data only has value at the moment
+	batch cant handle session, queue needs to be full
+	addresses latency, session, inconsistent load
+	streaming acts on data while in motion, create event
+	example: credit card fraud alerting
+	batch processing: data at rest
+	stream processing: data in transit
+	iot devices fits well
+	reduces need for large/expensive shared dbs
+	dont need for month end billing, large reports
+	need to be able to react immediately - shelf life seconds
+	
+kinesis
+	connect process analyze data streams
+	iam/kms tls
+	s3/redshift
+	video: binary encoded (audio/video)
+		ingest smartphone camera radar drone satellite dashcam
+	streams/firehose/analytics: base64 encoded
+	data streams immutable
+	no auto scale
+	available from 24hrs (default) to 365days
+	billed per gig/month
+	charge for data > 7 days old
+	consumers
+		classic (polling) pulls from datastream
+		enhanced fan out (subscribe) shard limits removed
+	pricing
+		video: volume ingested/consumed/stored
+		data stream: hourly on # shards whether data is/not in stream
+				charge when data put into stream
+		firehose: amount of data in delivery stream, amount of data
+				converted, data delivered to vpc
+		analytics: hourly on kpu (kinesis processing unit)
+		
+stream based architecture
+	low latency
+	producers (searches/transactions/iot telemetry/app metrics)
+	consumers (data aggregation/alerting/new producer)
+	data storage/analytics/notifications
+	5 layers of streaming
+		source
+		ingestion (producers)
+		storage (high speed buffer)
+		processing (consumers) deliver to destination
+		destination (storage)
+	use cases
+		clickstream (sales/customers)
+		preventative maint
+		fraud detect
+		emotion analytics
+		dynamic pricing engine
+		
+emr
+	elastic map reduce
+	based on hadoop for big data
+	use cases
+		log analysis
+		web indexing
+		data warehousing
+	supports presto/spark/hbase
+	
+amazon msk
+	managed streaming for kafka
+	buffer between producer and consumer
+	can use kafka apis
+	fully managed (dont need zookeeper)
+	retention period default 7 days
+	storage size configurable
+	msk cluster
+		broker instance - same or cross AZ
+		broker storage - ebs volume (increase, no decrease)
+	can migrate kafka cluster to aws
+	in kafka, topics store data
+	
+amazon device farm service
+	app testing service android ios and webapps
+	can replace physical devices needed for testing
+	auto test or byo or manual/remote (browser)
+	integrate with dev env (jenkins, etc)
+	
+amazon pinpoint service
+	run targeted campaigns in mobile apps
+	can create targeted messages
+	build application interest
+	campaign data analysis through graphical dashboards console
+	collect app usage data
+	campaign scheduling
+	can export to existing analytics system
+	a/b testing, funnel analytics
+	
+amazon comprehend
+	machine learning - extract from documents via natural language processing
+	meaningful data
+	data types: key phrases entities sentiment pii language syntax topic modeling
+	confidence score assigned to each insight, measures likelihood that is correct
+	
+amazon forecast
+	forecast for time series dataset
+		hourly iot
+		monthly sales
+		daily inventory
+		weekly website traffic
+	use cases: ec2 capacity planning, demand/inventory planning, workforce planning
+	dataset domain - a predefined dataset schema for common use case .. presets provided
+	3 dataset types: target time series, related time series, item metadata
+					 ^ only requirement
+	steps: import, train predictor, generate forecast
+	
+aws sagemaker
+	fully managed
+	build train deploy machine learning models
+	
+amazon lex
+	develop conversational interfaces using voice and text
+	
+amazon rekognition
+	labels objects in an image
+	two types of processing: videos (async), images (synchronous)
+	
+architecture basics
+	lamp linux apache mysql php
+	mean mongodb expressjs angularjs nodejs 
+	serverless api gateway/lambda
+	microservices not tied to tiers unless refactoring monolith
+	multitier arch
+		presentation layer
+		application/logic layer
+		data layer
+		ensure decoupled and independent components
+	
+multi tier vs single tier
+	single tier: simple non customer facing or dev testing
+	highly available: multi tier
+	
+design multi tier
+	need vpc 
+		public for prez (need ig and route to it)
+			security groups work at instance level
+		private for application/data
+	instances without public ip can access internet via NAT gateway
+	NAT gateway vs NAT instance
+		NAT instance - hopping host
+		NAT gateway - managed service - better
+	VPN/VPG vs internet gateway
+	leave spare capacity for subnets
+	
+choosing EC2 vs serverless 
+	serverless: fargate, s3, dynamo, lambda, etc
+	do i need a running instance all the time
+	serverless services highly available
+		ec2 needs elbs and auto scale for this
+	lambda - 15 minute/10gb limit
+	choose ec2 if workload is:
+		long running
+		memory intensive
+		steady/predictable
+		needs more time than lambda provides
+		migrating existing workload and cant refactor
+		need root access
+	choose lambda/serverless if:
+		dont want to manage servers
+		greenfield application
+		cloud native/microservices/sns/sqs
+		can expose http/s
+		cloudformation for deployment 
+		demand levels unpredictable and within lambda limits
+		need multiple concurrent versions
+		rapid prototyping
+		low demand
+	cost compare
+		requests per month use goes way up, lambda cost goes way up
+		can predict and right size demand, ec2
+		server maintenance is not free
+
+serverless design patterns
+	api gateway, lambda
+	no load balancing, auto scaling, availability zones
+	lambda in vpc with elastic network interface
+		storage inaccessible to internet
+		storage private subnet
+	code functions in lambda called handlers
+	handler triggered by api gateway
+	each lambda function assumes iam role
+	kms to store environment variables
+	secrets manager
+	custom authorizer generates token to invoke api
+	
+aws serverless
+	compute
+		lambda - event driven service
+		fargate - run serverless containers on ECS
+	application integration
+		eventbridge - event bus filter manage route
+		step functions - state machine
+		sqs - fifo and standard queues
+		sns - pubsub notification
+		api gateway
+		appsync - manage/sync data across mobile devices graphql
+	storage
+		s3 - native integration with lambda
+		dynamodb - document/nosql
+		rds proxy - pool and share connections, reduce latency
+		aurora - sql
+		
+migration
+	3 stages
+		assess
+			how prepared you are to begin migration
+			migration evaluator - help baseline on prem
+				project cost
+					accelerates digital transform to aws
+				agentless collector tool
+				run for two weeks
+				can be read by migration hub
+					dashboard
+					manage multiple locations
+				quick insights documents
+		mobilize
+			define details and strategy of migration plan
+			application discovery service
+				collect usage/behavioral data
+				encrypted and sent to athena/quicksight/migration hub
+				either agent or agentless
+					agent - installed on servers physical or virtual
+					agentless (discovery connector) only for vmware
+						deployed using ova file
+						connect once an hour ish
+			aws control tower
+				essential for deploying multi account strategy w landing zones
+				landing zone: multi account architecture best practices
+					well architected framework
+				created from blueprints
+				configures security/federation
+				blueprints create multi account environment using aws organizations
+					orgs: root ou, core ou, custom ou
+					core ou: log archive, audit
+				provides sso
+			identify skill gaps
+		migrate/modernize
+			design solution 
+			id dependencies and interconnectivity
+			validate
+			application migration service
+				lift and shift
+				agent replicates servers to aws
+				replication settings template needs to be created
+					then add source servers
+			database migration service
+				sql server/oracle/etc
+				match schema
+				replication instance (ec2)
+				connect to source and target via endpoints
+			aws service catalog
+				provision it stacks
+				select pre approved services
+				upload cloudformation templates
+				full control over what users have access to
+				portfolios of products
+			aws datasync
+				migrate/manage/replace/move data from source to dest
+				s3/efs/fsx windows/snowcone
+				supports vpc endpoints
+				proprietary data transfer network
+			aws transfer family
+				in/out of s3 and efs
+				sftp, ftps, ftp, as2
+				uses mftw managed file transfer workflow
+				iam roles grant permissions
+				configure protocol
+				add user to transfer server
+				use client to complete transfer
+			snow family
+				can transfer in or out of aws
+				
+design patterns
+	multi layer serverless microservices
+	high performance service - a lot of events fast as possible - multi tier
+	burst lookup events dynamodb auto scale on table w global secondary index
+	high performant machine learning fsx for lustre internal file share
+	need windows, fsx for windows. keep same user perms 
+	communicate on specific port or protocol, network load balancer
+		in front of ec2 in azs add auto scale group
+	credentials in code, secrets manager lambda retrieve with iam role
+		kms not good, for encryption keys. not cloud hsm high cost
+	improve performance in delivery new markets cloudfront
+		can geoblock 
+		can share small group signed urls 
+	waf or cloudfront to restrict, if not available can use nacl
+		nacl add deny method to inbound table
+	compliance/audit - cloudtrail track api calls 
+		aws config track config change in vpc
+	sqs/sns good for decoupling
+		parallel async processing sns fanout 
+	order processing sns topic with multiple sqs queues to ec2 for each action
+	improve performance auto scale group in middle tier
+	high volume of inbound messages kinesis with single shard
+	performance degrade heavy read migrate to rds with read replicas
+	add elasticache improve read performance
+		need features, redis
+		need speed, memcache
+		
+aws trusted advisor
+	provide recommendations that help you follow aws best practices
+	identify ways (checks) to optimize infrastructure, improve security and performance, 
+		reduce costs and monitor service quotas, fault tolerance
+	idle load balancer check
+	cost optimization checks - automatically identify resources that are underutilized to be reviewed and resolved
+
+aws well-architected tool	
+	service that helps review the state of applications/workloads
+	central location for architectural best practices 
+	based on aws well-architected framework (which helps architects build good application infrastructures)
+		- note: this is not a service
+	

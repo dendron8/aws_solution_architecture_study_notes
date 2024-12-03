@@ -1,0 +1,166 @@
+amazon appflow - create manually triggered flow to transfer ticket data from zendesk to redshift,
+	snowflake or s3 or local file storage
+	s3 better than local over 1gb
+cloudtrail with insights - track api activity that deviates from typical
+to reduce spending on aurora with prod and non-prod environments use on demand instances for non prod
+	best practice, dont require 24x7 uptime
+aurora stopped instances still accrue charges for storage, should delete when not in use (non prod)
+amazon kendra - intelligent search service powered by machine learning
+rds with single read replica multi az enabled, util at 20%, how to make cost effective - 
+	delete read replica and scale down instance
+amazon detective - analyze investigate and root cause of security assessment findings, graphs
+no data stored in instance volumes in ec2 is persisted when creating an ami and launching a new 
+	instance
+sagemaker with s3, large data sets taking too long - switch to efs
+kinesis data streams can retry records if a failure occurs during ingestion
+to store macie discovery long term create an s3 bucket within 30 days of enablement
+cloudformation - source controlled declarative templates for stack automation - automate
+	layers of a cloud deployment
+dynamodb provide customers throughout the globe with millisecond latency, manage performance
+	and data replication with minimal manual administration
+easy solution to connect aws vpc with on prem using existing internet: site to site
+	vpn connection with virtual private gateway and customer gateway
+	if not quick and not existing internet: aws direct connect is choice
+application load balancer - one or more listeners to route traffic to a target group. 
+aws network firewall - deep packet inspection on vpc traffic
+cloudhsm - hardware encryption device provides tamper proof env for generation/storage
+	of cryptographic keys
+ebs provisioned iops volume - performance consistency 99%
+	iops: number of operations / access to disk - how fast can each io happen
+		how fast can you take bites
+	throughput: number of bits / amount of info in each io
+		how big is your mouth / how big of a bite can you take
+simple object caching: elasticache for memcached - user session info accessible,
+	can scale in/out based on demand
+rds event notifications - can publish db instance stop/restart events to sns
+aurora autoscaling - automatically adjust the number of aurora read replicas 
+monitor and alert admins if cpu of ec2 in ASgroup exceeds threshold: cloudwatch and sns
+	cloudwatch: metrics
+	cloudtrail: actions on aws resources by user/role
+prevent removal of s3 objects: enable object lock with retention compliance mode
+cost associated with traffic from a subnet in vpc A (AZ1) to a NAT gateway in vpc B (AZ2)
+	NAT gatway cost: hourly, data processing, data transfer
+cant grant cross account access to s3 via iam
+increase throughput (how big is your mouth) for sqs fifo queues; sqs batch actions
+immediately prevent access to files in s3/edge locations: remove files from s3
+	and invalidate from edge
+automate/consolidate backup tasks : aws backup create backup plan, assign resources 
+	and create backup vault. 
+can configure inspector to scan ecr repositories for software vulnerabilities
+fsx for windows file server fully managed native windows file system built in replication
+	across availability zones
+service catalog - create service portfolio to limit what it team can provision
+	distribute portfolio via organizations
+speed up transfer to s3 - s3 transfer accelerator, uses
+    cloudfront to allow customers to upload to closest edge location 
+use control tower to setup/manage a secure multi account environment
+	uses blueprints to govern multi account structures
+polly: converts text into lifelike speech
+aws organizations: attach a service control policy to the root ou to have it
+	apply to all ous
+dynamodb accelerator (DAX): high cache misses or writes (cpu and eviction rates are high) 
+	try increasing size of the dax cluster nodes
+rds service: prevent performance issues with running out of storage for unknown storage
+	needs: enable storage autoscaling for the instance
+centralize web presence protection against common web exploits and ddos : aws firewall
+	manager. everything in aws organizations first. then can centrally configure and
+	manage firewall rules
+neptune: graph database capture complex relationships minimal admin
+tags applied to s3 objects cannot be tracked as cost allocation tags
+	supported for inventory purpose
+rekognition: detect text in images and convert to machine readable text
+application migration to aws, transition period where cloud and on prem take requests:
+	alb with listener rule to weighted target groups
+use case: user images and text to produce ads. images temp stored, can be reproduced from 
+	ad. retain copy of video. need cost effective s3
+	s3 intelligent tiering good for videos as cost savings tangible given size
+	files better for one zone infrequent access as they can be easily recreated
+wavelength : build application to deliver low latency to mobile, uses edge of 
+	telecommunication carrier 5G networks. 
+route 53 alias records for every application load balancer and enable latency 
+	routing policy improve performance for users by serving requests from aws
+	region with lowest latency
+aws waf protect against sql injections from multiple ip addresses adopt fine 
+	grained approach, dont have to block all customers. can allow traffic from certain
+	ip addresses with rule, then another rule to review messages for suspicious sql
+ebs multi attach can have inconsistent or stale data if a high number of
+	simultaneous write requests. fix by configuring write ordering in application
+use case: vpc with 2 private subnets each in diff AZ. need internet facing application
+	load balancer to send traffic to application in said AZs. must distribute evenly 
+	solution: create public subnet in each AZ, create ALB and associate with subnets, 
+	create security group to allow inbound from internet and outbound to targets, update
+	target security group to allow inbound from ALB
+security hub: consolidate data generated from multiple security tools - macie, inspector,
+	config, alert logic, crowdstrike, etc
+upload data into s3 bucket from app in same region: vpc gateway endpoint
+use case: ipv6 with ec2 in public subnet, application/rds in private subnet
+	accept http from local but public outbound without exposing ip
+	egress only internet gateway
+route 53 calculated health check: aggregates all of the individual health checks
+	and compares to threshold set. 
+use case: hybrid cloud connect on prem with cloud connect vpc 
+	aws managed vpn
+use case: hundreds of new employees permissions vary based on location and title, how to 
+	apply access to resources with minimal reorganizing
+	create iam groups based on location/title attach iam policies to each group and assign
+	users to their group
+enable ebs encryption: creating a new ebs volume from an unencrypted snapshot will 
+	automatically encrypt the volume
+use case: months of data, need high performance that supports docker results needed
+	immediately no time to design compute resources need managed service minimal manual
+	admin. solution: aws batch on aws fargate
+aws well architected framework is NOT a service. aws well architected tool IS a service.
+to establish a site to site vpn connection from on prem to vpc - need physical appliance
+	/ sofware application as customer gateway, and public ip on gateway
+aws compute optimizer recommends optimal aws resource for workloads to reduce costs
+	and improve performance (ex: ec2 and lambda)
+application load balancer as a cloudfront origin; secure connection between cloudfront 
+	and alb: custom http headers
+encrypt communication between customers and ecs containers and s3: http listener for 
+	alb, ssl cert in aws cert manager and assign to albs and cloudfront
+hadoop in aws, options for higher speed network between instances: elastic network
+	adapter, intel 85299 virtual function interface
+eip addresses can be moved from one instance to another in multiple vpcs within same region
+before you enable aws firewall manager target accounts must be grouped into an aws org;
+	then setup firewall admin account and enable aws config
+use case: ec2 instances in both public and private subnets in multi AZ. how to deploy EFS?
+	deploy a mount target in each AZ in the VPC. could just deploy single target for VPC
+	but additional cost with communication cross AZ
+rds handling large number of reads / writes requires vertical scaling. 
+point in time recovery protects tables from accidental write/delete
+maintain availability and minimal downtime if one of 15 regions loses network :
+	create route53 weighted resource record with 2+ resource record sets that have same
+	dns name/type and assign each record a unique id and weight.. create route53 failover
+	routing policy and configure active/passive failover
+ebs elastic volumes can scale up storage with minimal administration. if not using
+	elastic volumes, use snapshots instead. create a snapshot, add a new larger volume,
+	replace original volume. to avoid latency, initialize from snapshot by accessing 
+	all blocks in snapshot.
+rds proxy allows applications to pool and share connections with db
+compute savings plan allows users to switch ec2 instance families
+io - how many bites
+iops - how many bites per second
+throughput - amount of data in io, how big are the bites
+s3 cross region replication vs transfer acceleration
+	if requirement is performance, transfer acceleration
+	if requirement is protection against regional outage or to ensure changes are recorded,
+		cross region replication
+route 53 alias records provide a route53-specific extension to dns
+use case: track vpc security group changes
+	create a cloudwatch event tracking api calls, target sns topics
+if want to reduce costs associated with nat gateway, consider moving instances from
+	private subnet into the public subnet
+take full advantage of a cluster placement group high throughput low latency:
+	all instances grouped in single AZ, EC2 instances with enhanced networking
+cross zone load balancing: distribute load evenly among targets in all AZs. disabled,
+	traffic split between AZs
+use case: share ALB cloudformation template between multiple stacks and also modify
+	template: configure template as a nested stack. 
+step functions - serverless orchestration service combine lambda functions and other
+	services
+no additional charge for vpc gateway endpoints
+reduce aws glue costs: change execution class to flex, minimize data processing units
+	(DPUs), use glue scheduler to run jobs on schedule. 
+	using aws glue crawler to indes data in s3 will not reduce costs
+aws backup: automated policy enforcement for data protection and compliance
+cluster placement group: logical grouping of instances in a single AZ

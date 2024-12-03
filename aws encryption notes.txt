@@ -1,0 +1,204 @@
+encryption notes
+
+kms
+	managed service used to store keys
+	admins dont have access to keys
+	admin actions require dual auth
+	user responsibility to manage keys
+	for encryption at rest only
+	keys typically used to encrypt data encryption keys
+	symetric: single key to encrypt/decrypt
+		algorithms AWS DES tripleDES blowfish
+		faster than asym but less secure
+	asymetric: two separate keys, created at same time
+		public (shared), private (protected)
+		both keys required to decrypt data
+	server side or client side 
+	default vs custom kms key stores
+		both secure kms keys in aws managed hsm devices
+		custom key stores allow key material to be stored in cloudhsm devices
+	integrated with cloudtrail audit track how keys are used and by whom
+	not multi region - region-specific
+		multi region keys supported for client side encryption
+	components
+		custom master keys (CMK), or data keys
+			customer managed
+				more flexible
+					rotation /govern/policy config
+					can enable/disable
+			aws managed
+				aws service interact with kms to encrypt data
+				only used by service that created them
+			aws services can be configured to use your own cmks
+		data encryption keys (DEK)
+			used to encrypt data
+			encrypted by CMK (envelope encryption)
+	sse-kms server side encryption in s3
+		encrypt: s3 to kms create plaintext data key and master key
+	key policies
+		to manage access to keys in kms, must use key policy
+		cant use iam alone to control access
+		json based similar to iam
+		root account full access to cmk
+			this allows using iam to control access for other users
+		flow: define key admins (only admin, no encrypt for these users), optionally able
+			to delete, which users allowed use, 
+	grants
+		delegate subset of your own access
+		created only via aws kms apis
+		granttoken, grantid created after grant created
+	cmk access
+		key policy vs iam policy
+	key management
+		rotate cmks
+			steps: kms creates new crypto material every rotation period
+				uses new keys for upcoming encryption. maintains old keys
+				to decrypt data encrypted with those keys.
+		auto key rotation (365 days) can be enabled
+			backing key is only thing that changes
+			if breach, rotate would not fix
+			original key stays to decrypt older stuff
+			not possible with imported key material
+			if key is disabled or pending delete, no rotate happens
+			aws managed cmks not possible to rotate
+		manual key rotation
+			create new cmk
+			point applications to new cmk id
+			could use alias names then just update alias target
+		import key material
+			when customer managed cmks generated, key material auto
+			can create cmk without key material
+				select external from key material advanced option
+				can then import custom key material
+				download wrapping key to upload key material encrypted
+					select algorithm. wrapping/token only 24hrs live
+				key material must be binary form
+				then import key material into empty cmk
+		delete key
+			check cloudtrail for last used
+			scheduled deletion process range 7-30 days
+				cmk taken out of action put in pending deletion state
+			recommend: cloudwatch alarm to see if in use
+			alternatively disable cmk
+		sharing cmks across accounts
+			iam based and resource based access
+			must use key policy
+			custom keys only, cant share aws managed keys
+			need both key policy and iam (from account of user that wants access)
+			key policy takes precedence over iam policy
+			
+cloud hsm
+	aws kms managed hsm devices while cloudhsm provides customer managed hsm devices
+	compatible with both symmetric and asymmetric keys
+	key management service (alternative/in addition to AWS KMS)
+	hardware security module
+	physical appliance guard crypto material and keys
+	fips standard 
+	not a multi tenant device
+	create/stor/manage keys
+	use crypto hash functions
+	secure data via crypto
+	best practice: deploy in HA config with at least 2 appliances in separate AZs
+	architecture
+		create cluster grouping of hsms
+			deployed in aws-managed vpc
+		requests are load balanced
+		vpc is prereq
+		request are through an ENI
+		service linked role created, can send logs to cloudwatch
+		security group created, allows inbound/outbound tcp 
+		must initialize cluster, connect via ec2 instance
+			must install cloudhsm client on instance
+			add instance to security group
+	cloudhsm and KMS integration
+		custom key store backed by cloudhsm cluster
+		store key material in cloudhsm
+		crypto happens in cluster
+		one cluster per CMK keystore, must be in same region
+		must upload trust cert
+		create dedicated crypto user without 2 factor auth
+		
+s3 encryption
+	sse-s3
+		keys managed by aws
+		steps: encrypt data with data key, encrypt data key with master key
+	sse-kms
+		kms generated keys custom can rotate/use cloudtrail
+	sse-c
+		provide external master key
+	cse-kms
+		client side encryption
+	cse-c
+		use your own keys use sdk to encrypt client side
+		
+for users that want to control encryption keys but dont want to manage the encryption operations, sse-c is the choice
+to encrypt existing s3 objects use the aws cli and use copy in place to have s3 encrypt the copy/new version
+
+aws secrets manager
+	rotates secrets automatically with backend support from built in lambda functions
+	db creds, api keys
+	avoid having to embed creds in application
+	must grant policy permission iam (attached to user) or resource based (attached to secret)
+	can share secrets store with multiple accounts
+	retrieve secret
+		sdk, cli, console
+	auto rotation, disabled by default
+	region replication
+	
+digital certs and aws cert manager
+	cert has embedded public key
+	cert validates public key
+	digital certs requested from trusted auth (CA)
+		public or private CAs
+		public already trusted by most, normally used for public websites
+			to request, generate CSR certificate signing request with public key
+			fee based
+		private not automatically trusted
+			must import CA root cert
+			for private CA we deploy infrastructure, manage cert lifecycle
+	ACM aws certificate manager
+		can request public certs for free
+		can setup private CA
+		dont need to provision infrastructure if private CA
+		key pairs/csrs done automatically
+		auto generate cert requests for expiring certs
+		regional service
+			except for cloudfront, need us east 2
+		if using dns validation, cname record nees to be added to each domain in CR
+			this proves you have control of the dns domain
+			if using route53, records added by ACM
+		private cert authorities
+			managed service
+			to use, must create cert hierarchy, configure root cert auth, configure subordinate cert auth
+			cost for each cert, and for being private
+
+summary
+	KMS 
+		managed service used to store and generate encryption keys
+		the aws kms key is the main key type within kms and can generate, encrypt decrypt
+			data encryption keys 
+		integrated with other aws services
+		different keys performa different roles and functions
+		aws does not have access to your keys with in kms
+		customer master keys cannot be recovered if they are deleted
+		kms is used for encryption at rest only
+		has integration with aws cloudtrail to audit and track how your encryption keys are being used
+		the cmk can generate encrypt and decrypt data encryption keys which are used outside of the kms service by
+			other aws services to perform encryption against your data
+		cmks can be aws managed or customer managed
+		key policies allows you to define who can use and access a particular key within kms
+		key policies are tied to the cmsks
+		grants can control access to cmks held within kms
+	cloud hsm
+		physical applience
+		fips validated
+		single tenancy
+		clusters act as single unit
+		highly available
+	s3 encryption
+		client side and server side available
+		sse-s3 no management s3 does it all
+		sse-kms key management service
+		sse-c customer provided keys
+		cse-kms - client side with kms
+		cse-c client side customer provided keys

@@ -1,0 +1,331 @@
+aws security notes
+
+iam identity and access management
+	id: aws account
+	are you who you say you are
+	what permissions do you have
+	method: username/password, mfa, federated
+	iam features/components
+		resources - accounts, permissions
+		best practices
+		access management
+			users - objects that represent an identity (user, app/system id)
+				arn 
+				can configure mfa - use for elevated permissions
+			user groups - authorize to aws resources
+				iam policies associated, allow/deny (preexisting, customer or inline)
+			roles - adopt permissions (assumed by an identity)
+				no passwords
+			policies
+				json what can and cant be accessed attached to users/groups/roles
+					managed, inline (not stored in library), customer
+			identity providers
+				federated external to aws allow access to resources
+				example: trust ad server on prem, google
+				prevents from having to create iam user accounts
+			password policy
+				enforce minimum password standards
+				applies to all iam users within account
+			security token service (sts) endpoints
+				allow request temp limited priv creds for users
+				default all regions activated, turn off ones not needed
+	access reports access analyzer
+		any resource that allows external access is flagged, reduce risks/threats
+	credential report
+		list of iam users/creds review
+	org activity 
+		select org unit for service activity, see which users active/which resources
+	service control policies
+		dont grant permissions, instead implement boundary of permissions
+	user dashboard
+		can create path to organize users, can add to policy to restrict/allow
+	creating iam users
+		username access type access keys console access permissions tags
+		can download .csv with creds
+	managing iam users
+	managing users wiwth iam groups
+		objects that contain iam users with policies 
+		usually job role (developer), attach permission policies
+		user can only be associated with up to 10 groups
+	iam roles
+		allow adopt temp permissions (user, service, application)
+		assumed by multiple entities 
+		credentials dynamically generated
+		trust define who/what can use role
+		can grant cross account
+	using aws service roles to access aws resoures
+		ec2 role to assume to access resources - best practice (vs store creds on instance)
+		service linked roles - preconfigured with permissions, only used by particular service
+			ex: serviceroleforcloudwatchevents
+			managed policy not editable
+	grant temp access for users via roles
+		when user assumes role it replaces all existing user permissions
+		must be trusted entity, have role policy permissions (assume role)
+	using roles for federated access
+		web identity
+			large unknown users
+			user receives token, then exchanged for role credentials
+			amazon cognito is preferred method 
+		saml 2.0
+			employees AD federate integrate with ADFS
+			security token service - gain temporary credentials after authentiation assertion 
+				successful from AD saml
+	iam aws policy types
+		identity based - attached to user group role
+			managed - saved in iam library attached to any / many entities
+				aws - preconfigured
+				customer - user created (use when aws ones dont meet requirements) 
+			inline - embedded into entity not saved in library cant easily replicate
+				not best practice (ex to use: elevated permissions)
+		resource based - inline associated with resource instead of entity (ex: s3 bucket policy)
+			ex: trust relationship policy
+			must have principal parameter
+		permission boundaries - max perms grant to entity only associated with user or role (not group)
+			dont grant permissions - guardrail only overrides other policy (identity)
+		org service control (SCP) - aws organizations attach to aws accounts or aws ou
+			similar to permission boundary but at account level
+			in aws orgs enable all settings at setup
+			can only update in aws orgs not in iam
+	json policy structure
+		each policy at least one statement
+		version: policy language version
+		statement: main element of policy 
+		sid: unique statement id
+		effect: allow or deny (default deny) deny in policy takes precedence over allow
+		principal: only for resource based policies (notprincipal as alternative)
+		action: action that will either be allowed or denied based on effect
+			prefixed with associated aws service (asterisk for all actions in service)
+			notaction as alternative
+		resource: resource to be applied to using ARNs for action/effect
+			notresource as alternative
+		condition: optional control when permissions take effect
+			example: ip address (if in range, then implement permissions in policy)
+	policy logic
+		authentication
+		context - service/action requested
+		policy evaluation
+		result
+	policy evaluation
+		by default all access denied
+		only allowed in allow action with principal
+		if deny with same principal, no allow
+		order of eval
+			1 org SCP
+			2 resource based
+			3 iam permission boundary
+			4 identity based
+	cross account access using iam
+		allows iam users from one account to resources in another account
+		example: dev users needs access to prod	on occasion
+		must consciously switch to assume role to access 
+		trusted (dev) and trusting (prod) account
+			create role from within prod
+			specify permissions attached to role
+			switch to dev
+			test
+			
+aws waf web application firewall
+	2 versions: classic and aws waf (new)
+	interacts with api gateway/cloudfront distro/alb/appsync graphql
+	components:
+		web acls
+			which web requests are safe/not
+			contains rules default action (allow/deny)
+		rules
+			statements and action - match execute action
+		rule groups
+			collection of rules to different acls
+			preconfigured available
+				managed rule groups
+				vendors, paid
+			marketplace has more
+			capacity rating
+				1500 WCUs limit - resources needed by WAF
+				specified at rule group creation
+					immutable limit
+					web acl would fail if wcu capacity limit exceeded
+	user -> cloudfront -> waf -> allow/block -> back to cloudfront if allowed
+	best practice: mitigate as close to app/request as possible
+	create rule
+		ipset - based on source ip or ip in header
+			created outside of web acl
+			per region, can be ipv4 or ipv6
+			cidr format for ip addresses
+		if no match, will take default action (allow or block)
+	rule builder
+		rate based rule type
+			count requests based on source ip over 5 mins
+			max set for a single source ip - acts as block if too many
+			"allow" is not option
+		regular rule type
+			if/then
+			allow/deny/count options
+	rule groups
+		create outside waf, cant do on fly
+		provide cloudwatch metric name, monitor keep same name as rule group best practice
+		specify capacity for rule group - cant be changed
+		rule priority
+			rules executed in order listed
+			typical: whitelist ip, blacklisted ip, bad signature
+			
+aws firewall manager
+	aws organizations is prereq
+	multiple aws accounts manage firewall security 
+	waf shield advanced networkfirewall vpc security groups route 53 resolver dns firewall
+	choose aws account, part of aws org all features enabled, must be aws firewall admin
+	enable aws config for which resources to secure
+	enable regions within management account
+	policies
+		different policy for each resource protected
+		$100 per policy per region
+		aws config rules also created, $$
+		policy rules
+			for web acl (waf), create rule groups that appear first, then also last 
+				replicated to all regions/accounts listed. must select web acl default action
+				select policy action
+				can select all/partial accounts for policy scope
+				can automatically remove protection if resources change
+			for shield advanced, select policy action and policy scope 
+			for security group policy, specify policy type (common, audit enforce, audit cleanup)
+				need vpc security group first, then add to policy rule. 
+				can select resource type .. all/tags/etc
+		new resources automatically covered
+		aws firewall manager policy steps:
+			1. choose policy and region
+			2. describe policy
+			3. define policy scope
+			4. configure policy tags
+			5. review/create
+	use case: apply network ip deny list to new application load balancers - create rules group that denies 
+		access to the ip addresses. create policy containing rule group, apply policy to all ALBs in org
+		
+aws shield
+	protect against DDoS
+	two types; standard and advanced
+	standard: free, cloudfront and route 53 layer3 layer4
+	advanced: cost, ec2 cloudfront elb route53 enhanced ddos access to ddos response team enhanced real 
+		time monitoring layer3 layer4 layer7 cost protection aws waf included
+	manually select resources to be protected arns
+	if ec2, need eip to have protected
+	add rate based rules - counts requests per ip only for albs and cloudfront
+	associate web acl with each resource, set up cloudwatch alarms
+	
+aws security hub
+	readiness score: result of checks against aws best practices
+	consolidate security findings cross accounts
+	firewall manager, guardduty, iam analyzer inspector macie systems manager detective can all
+		send data to hub
+	can integrate with vendor atlallsian servicenow symantec etc
+	uses aws config auto run account level config and check
+
+amazon guardduty
+	threat detection service continuously monitors aws accounts for malicious activity
+
+amazon inspector
+	vulnerability management service
+	scans aws workloads for solfware vulnerabilities and unintended network exposure	
+	analyze deployed ec2
+		check network accessibility and security vulnerabilities of ec2 and security state
+			of applications on those instances
+	includes knowledge base rules
+	install agent to monitor behavior review findings
+	benefits: simplifies compliance, assess exposure of attack points
+
+amazon guard duty
+	looks for anomalies and known malicious sources
+	thread identification, categorize by severity
+	uses machine learning models to id 
+	learns from env, eliminate false positives
+	can analyze cloudtrail logs
+	uses data from cloudtrail event logs, vpc flow logs, dns logs
+	
+amazon macie
+	fully managed machine learning and pattern matching service helps with data security and privacy
+	analyze s3 buckets for sensitive data
+	tracks changes to buckets, only review new
+	one time or automated
+	
+amazon cognito
+	Sync: allows users to pickup where they left off when switching devices
+	auth user mgmt service integration federated identities via mobile/webapp
+	user pools and identity pools
+	user pools
+		directory of users - sign up sign in
+		can use 3rd party
+		can use saml (need domain name you own)
+		oauth 2.0 compliant
+		aws lambda integrations - trigger based on action
+		auth flow
+			login screen, login
+			api initiateauth
+			token or captchas or custom q's
+			tokens back
+	identity pools
+		provide temp access aws creds 
+		federated identities
+		auth and unauth identities
+		unauth - guest pass default page etc
+		roles	
+		auth flow
+			user sign in user pool 
+			id back to user pool CUP
+			STS token for s3/rds/etc
+
+aws identity federation
+	two providers establish trust
+	standards: saml, oauth, openid
+	identity source: aws sso, AD, saml
+	aws iam allows federated
+	
+amazon fraud detector
+	fully managed fraud detection service
+	automates detection of fraudulent activities online
+
+aws sso
+	allow single sign on to multiple accounts without iam account
+	tightly integrates with aws organizations
+	managed service
+	personalized portals
+	integration with cloudtrail
+	support for azure and okta
+	prereqs
+		configure aws orgs all features
+		management acct to setup aws sso
+		choose identity pool source
+			saml external azure okta
+			default id user store
+		customize url add new user create groups, add user create permission set associate to group
+		
+summary
+	exam - iam shield waf cognito
+	users are objects create to represent identity
+		can have console or programmatic access
+		programmatic needs keys
+		each user must be unique within aws account
+	groups - objects that users can be a part of to inherit
+		iam policies - what access it allows or denies need to know
+		default is deny over allow
+	roles allow users and other services to adopt temporary iam permissions to access aws resources
+	users must adopt a role to use it
+	ec2 instances can be associated with a role granting permissions for that instance to access AWS resources
+		on an applications behalf
+	aws service role: user by other services that would assume the role to perform specific functions
+	service linked role - prefefined roles associated to certain aws services
+	cross account roles: provide access between aws accounts
+	identity provider access role: grants access to web id provider/sso to saml provider
+	
+	iam: centrally manage and control security permissions / access to aws account and resources
+	waf: protect webapps or cloudfront distros from common attack patterns
+	firewall manager: waf between multiple aws orgs
+	shield: protection from ddos
+	cognito: web and mobile federated access
+	iam access advisor shows which services a user can access based on permissions and last access
+	
+protect vpcs from network threats: network firewall
+amazon detective: switch back and forth with security hub to investigate security finding
+protect efs from being mounted without encryption
+	use an IAM policy to control - efs file system policy that includes condition aws:securetransport set to true
+
+amazon eks anywhere
+	create and operate eks kubernetes clusters on prem
+	either bare metal or vsphere

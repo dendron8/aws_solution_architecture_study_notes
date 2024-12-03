@@ -1,0 +1,576 @@
+aws management notes
+
+cloudwatch
+	health/operational performance
+	dashboards - custom visual widgets viewed from aws console
+		can access without aws account
+	metrics and anomaly detection 
+		can collect every minute for $$ (every 5 minutes free)
+		metrics in 1 region not available in another
+		machine learning algorithms
+		helps detect any activity that sits outside normal baseline parameters 
+	alarms - auto actions based on metrics
+		send to sns topic
+		3 states - ok, alarm, insufficient
+		integrate with dashboard
+	eventbridge (from aws events)
+		real time monitoring of events
+		event driven architecture
+		rules - filter for incoming streams, route to target(s) must be in same region
+		targets -where events are sent by rules json
+		event bus - receives event from application 
+			can create custom event bus
+	logs - house all logs
+		log insights - monitor streams real time
+		central repository of log data
+		unified cloudwatch agent collect additional metrics
+	insights
+		get more info from data cloudwatch collects
+		log - analyze and visualize log data
+		container - collect data from containers capture and monitor diagnostic data
+		lambda - diagnostics for serverless applications must enable
+	events	
+		can track api calls (cloudtrail messages)
+		can trigger actions to be taken by target services (sns topics)
+
+cloudtrail
+	record and track all api requests
+	sdk/cli/console
+	request captured as event sent to s3
+	id/timestamp/source ip
+	new logs every 5 minutes
+	can be delivered to cloudwatch
+	global service all regions
+	effective as security analysis tool
+		monitor restricted api calls, threshold breaches
+	filtering for isolating data, quicker RCA, speedy res
+	metric filter in cloudwatch for cloudtrail logs
+		create filter pattern for specific data to monitor/extract
+	track changes to aws infrastructure 
+		aws config does this as well, but not api call
+	can be used for compliance and governance iso pci dss fedramp
+	components
+		trails - building blocks of cloudtrail
+		s3 - default store log files
+		logs - record all events captured, every 5 minutes
+		kms - optional encryption of log files
+		sns - optional notifications (new log file, metric thresholds)
+		cloudwatch - optional to send logs here
+		event selectors - customize api to capture
+		tags
+		events
+		api activity filters find events 
+	steps
+		create trail
+		specify bucket
+		encrypt
+		sns for new logs
+		enable log file validation optional
+		after create
+			deliver to cloudwatch
+			configure event selectors
+			add tags
+			
+aws config - record and capture resource management
+	manage and maintain compliance
+	what resources do we have
+	are there any security vulnerabilities
+	how are resources linked with env
+	do we have history of changes
+	is infrastructure compliant with governance controls
+	do we have accurate auditing
+	capabilities
+		capture resource changes
+		resource inventory
+		store config history
+		snapshot of config 
+		notifications about changes
+		cloudtrail integration who made change when which api
+		rules to check compliancy
+		security analysis
+		identify relationships between resources
+	region specific - need setup for each region 
+	can specify global services (iam)
+	can track config changes and notify but not as quickly as cloudwatch events
+	components
+		aws resources
+			create/update/delete of services
+		configuration item (CI)
+			json file holds config/relationship/snapshot view
+			used by config history, config streams, snapshots
+		configuration streams
+			CI sent, as SNS topic
+			used by aws config for 
+				when config history delivered
+				when snapshot starts
+				state of compliance changes 
+				when evals begin
+				when config fails to deliver notification
+		configuration history
+			accessed programatically or console
+			delivered every 6 hours, contains all CIs for a resource type
+		config snapshot
+			point in time of all resources
+		configuration recorder
+			engine of service, records all changes
+			can stop/start
+			which resource types to record
+		config rules
+			enforce compliance
+			realized as lambda
+				sns - to stream non compliant
+				alert, not action
+			custom or predefined
+		resource relationships
+			logical mapping of resources and how they connect
+		sns topic
+			config stream for notifications
+		s3 bucket
+			stores config history for each resource type 
+			stores snapshots
+		aws config permissions
+			iam role, allow aws config read access to resources also sns and s3 send data
+	steps
+		config elements recordder
+		discover resources
+		CI created notification sent
+		check rules if non compliant
+		if snapshot, deliver to s3
+		after 6 hours history file created sent to s3
+		
+aws organizations
+	centrally manage multiple aws accounts
+	components
+		organizations
+			form hierarchy of account structure
+			all sit under root object
+			OU organizational unit
+		accounts
+			aws accounts
+		service control policies (SCP)
+			what features accessible in account
+			fed down to all child objects
+	master account control which resources access what
+		consolidate billing
+		dont use to provision resources
+		can create accounts/remove accounts
+		use case: review and accept AWS Business Associate Addendum (BAA) on all accounts	
+			can do this from the management (master) account
+	categorization and grouping of accounts
+	if want SCP, enable all features
+	SCP service control policies
+		central control over maximum available permissions for all accounts in organization 
+		dont grant permissions
+		restrictions on aws accounts - guardrails
+		overrides iam/resource policies
+		inheiritance of SCPs
+			parent/child relationship
+			OUs have nested SCPs
+			goverened by SCP directly above for OU, not parent SCP/OU
+			parent missing scp from lower, not enforced/governed by it
+		does not affect service linked policies, aws cloudfront keys
+	
+aws control tower
+	larger more controlled method of creating distributing managing and auditing multiple accounts
+	create govern administer aws accounts
+	landing zone
+		auto created from blueprints
+		multi account architecture well architected framework based on security/compliance best practices
+		root OU (controlling), core OU (shared accts, log and audit), custom OU (working accounts)
+	plug ad into aws sso 
+	managing landing zone
+		do not modify iam roles
+		dont disallow user of regions
+		set up in most used region
+		deploy new accounts in that region
+		dont move audit bucket
+		activate security token service (STS)
+	guardrails - auto deployed 
+		keep user accounts in compliance with basic security regulations
+		implement policies
+		plain english
+		underlying SCP (json)
+		types
+			mandatory - auto create cannot disable defensive in nature
+			strongly recommended - best practices
+			elective - track commonly implemented actions
+		create resources when created auto
+	adding accounts
+		enroll via account factory
+			governed by control tower, account cant be in state of drift
+			need iam permissions
+		account factory - advanced method
+			service catalog
+			do not create resource plan
+		lambda/iam
+			do this from management account
+			must have policy iam
+			can automate
+	unmanage account
+		through aws service catalog
+		provisioned products list
+		select account, terminate
+	drift
+		detection via sns about how much drift 
+		problems resolved manually
+		major drift
+			delete core ou
+			roles that check for drift missing/inaccessible
+			custom ou deleted
+	best practices
+		do not update SCP managed by control tower (create new instead)
+		dont move outside accounts into control tower
+		nested OUs not accessible
+		dont rename, needs repair
+	control tower vs security hub
+		ct: destination for cloud admin	
+		sh: destination for security and compliance admin
+		
+aws license manager
+	management and control of licenses in cloud and on prem
+	create license config around rules
+	rule types
+		license counting type
+		min/max vcpus or phys cores
+		license count
+		lic count hard limit
+		allowed tenancy: shared (default) dedicated or ded host
+	can monitor systems manager and aws organizations
+	
+amazon service catalog
+	org tool provision/create it stack easier
+	select content users need - easier than allow/limit via iam
+	products - single resource or collection or marketplace
+		create: cloud formation templates
+			define lambda version in Transform section
+		users can update running stack
+		can deprecate products
+		business level input parameters prompt to user
+	product portfolio
+		collection products with config who can use and owner
+		can share between accounts, they can add new / updates
+	using constraints
+		limit scope / availability
+		active as soon as create, not retroactive
+		launch constraint: specific id and role, service does heavy lifting instead of user
+			iam role permissions needed
+		notification constraint: receive sns about stack events
+			can see what is deployed, success
+		tag update constraints
+			can user update tags
+		stack set constraints
+			where products launched region accounts, order
+		template constraints
+			limit options to users
+	service actions
+		give user control of operational tasks
+		product specific
+	pricing
+		free up to 1000 api calls/month
+	
+aws systems manager
+	workflow: group resources, examine operational data, take action to mitigate issues
+	automated config and mgmt of aws services
+	maintenance windows
+	console or command line
+	native integration iam cloudtrail cloudwatch etc
+	manage traditional and cloud workloads 
+	visibility of machine farm independent of os
+	systems manager explorer - dashboard
+		configure settings/prefs
+		prioritize work items
+		automated runbooks
+	managing resource groups
+		manual: select instances or tags, save as resource group
+		query on group
+		same region of like tags or cloudformation stacks
+	tag policy editor
+	catalog resources using tags - best practice
+	ssm agent - installed on all instances to be managed
+		default install on amazon amis
+	managed instance roles
+		predefined managed policy amazon ec2 role for ssm makes instance visible
+	hybrid activation
+		manage instances outside aws
+	fleet manager
+		visibility into each managed instance
+	session manager
+		connect to any managed instance interactive browser shell login 
+			no open ports or bastion hosts or keys or ssh 
+		tls 1.2 used
+		tracks all activity to logs cloudwatch trail s3
+		iam policies to control this
+		linux/windows/macos
+		
+aws logging
+	audit, compliance, incident resolution speed
+	cloudwatch logs
+		central repo for real time monitoring
+		default ec2 logs without agent
+		unified cloudwatch agent
+			need CloudWatch Agent Server Policy and Amazone EC2 Role for SSM
+			collect logs from ec2 or on prem
+			create role, attach to instance with permissions to collect data
+			download/install agent
+			configure and start agent
+			verify ec2 instance has access to internet and ssm agent installed
+			need to create cloudwatch agent configuration file
+				manual or wizard
+				copy to ssm parameter store to reuse
+	cloudtrail logging
+		record/track aws api requests, programmatic, cli, console, aws service
+		captures as event in log file on s3
+		each api call is new event
+		details: id of caller, timestamp, source ip
+		json format
+		new logs every 5 minutes, not delivered to s3 until 15 minutes
+		can aggregate logs from multiple accounts into single s3 bucket/account
+			create role for secondary account from primary
+			assign access policy allowing access to s3 folder
+			assign secondary permissions to assume role
+		cant aggregate cloudtrail logs from multiple accounts into cloudwatch logs for one account
+		log file integrity validation
+			create hash with sha-256
+			new digest file every hour - which logs delivered
+				signed by private key
+	cloudwatch and cloudtrail monitoring
+		use case: api calls for significant changes, stop/start/reboot/terminate ec2, change
+			security policy, failed login, failed auth
+		setup: configure trail to use cloudwatch log - new or existing
+			also goes to s3
+		cloudtrail needs permissions: createlogstream, putlogevents
+		event size limit 256k (too big not sent to cloudwatch)
+	cloudfront access logs
+		record request to s3 bucket
+		logs saved to each distro
+		all edge locations write to same distro log
+		cloudfront keeps log (1-24hrs) until full then deliver to s3
+		user must have full control s3 GetBucketAcl, PutBucketAcl
+		can log cookie data
+	vpc flow logs
+		capture ip traffic between network interfaces in vpcs
+		resolve incidents in network/flow/traffic
+		not stored in s3 - goes to cloudwatch
+		limitations - vpc peered, only in same account
+			no ec2 classic
+			cant change config - only delete and recreate
+			traffic not logged - dhcp, dns destinations, default router, windows license, nlb and eni
+		setup: network interface, subnet, vpc
+			if subnet/vpc, traffic from all NIs
+		iam role needed
+		vpc flow log service must be able to assume role
+		need permission to view logs (role)
+		
+aws health dashboard
+	
+cost management
+	bills and cost drivers
+		billing dashboard
+			what are biggest cost drivers, can sort by month, and by aws service (ec2 big)
+			credits
+				can apply to account
+				multiple ways to get credits
+		cost explorer
+			get info, can analyze costs
+			identify trends
+			free, but cost for api invocations
+			unblended costs: usage costs on day they are charged / costs on cash basis
+			amortized costs: gain insight into daily costs of reservation portfolio, 
+				way to normalize costs and usage info when operating at scale
+			
+aws budgets
+	allows user to receive notifications when costs or usage exceed predefined amount
+	create budget
+		types: cost, usage, savings plan, reservation
+	create report
+	budget alert 
+	budget alert actions
+		change iam
+		change service control permissions for aws organizations (org or unit level)
+		stop ec2/rds
+		can apply action automatically, or manual (email)
+		
+aws cost anomaly detection
+	what is normal/not normal
+	alert (cost monitor), investigate
+	threshold - when to alert
+	free service
+	
+tagging
+	tag resources - key/value pairs
+	use for cost allocation
+	example: environment:production
+			tier:frontend
+	CUR cost and usage reports
+		store in s3
+		athen/quicksight use
+	managed in console or cli or aws tag editor
+	best practices / examples
+		cost center/business unit tags
+		service / workload tags
+		resource owner tags
+		environment tags
+		align tags to cost allocation strategy
+		tag everything, but limit the number of tags adopted
+		automate tag management
+		policies to forbid launch untagged
+	default cost allocation tags - activate in billing section
+		dont appear in tag editor
+		use case: collect data transfer costs between on prem servers and ec2 instances
+		
+aws data visualization services
+	athena
+		glue integrated
+		sql
+		backed by s3
+	quicksight
+		predefined reports
+		
+aws glue
+	data catalog
+		central metadata repository format location schema
+		glue crawler connect to source parse with classifiers
+		new table for metadata. original data still exists in source
+	studio
+		create submit monitor etl jobs
+		create custom code/scripts to transform data python scala etc
+		for etl engineers
+		no data profiling
+	databrew
+		no code service for transforming data
+		upload data
+		choose build in transformations 250+
+		store output in s3
+		prepare data for machine learning
+		for business analysts/data scientists
+	elastic views
+	crawlers
+		scan data in different repos
+		classify
+		extract schema info 
+		store metadata
+	emr
+		etl/machine learning/data analysis
+		glue: easy to use, less control, cant manage ec2/clusters, spark only, more $$
+			only pay for time it runs, limit on cpu/ram 
+		emr: more control, complex, can manage ec2, not just spark any engine, less $$
+			pay for idle clusters, emr more performant cpu/ram
+	orchestrating etl workflows
+		data pipeline
+			coordinate data processing auto
+			3 parts: data node (s3/redshift/rds/jdbc/dynamo), activities (copy/sql/emr),
+				preconditions (if/then..)
+			retry built in
+		step functions
+			generic workflows
+			integrates with more services (200+)
+			pipelines for both emr and glue
+			example: upload s3 trigger steps first lambda validate if good stg if fail error
+				folder stg crawler etl store output folder sns etl success
+		glue workflows
+			visual editor relationships between components of etl workflow
+			only works with glue components
+			no cost
+	use cases
+		queries against s3 data lake
+		unified view of data across multiple data stores
+		analyze log data in a data warehouse
+		
+amazon quicksight
+	easily visualize and analyze data
+	create detailed and precise visualizations
+	publish dashboards and analyses
+			
+aws artifact
+	reports, also known as audit artifacts
+	security and compliance reports
+	view and execute legal agreements with aws
+	ex: provide evidence of compliance audit regulatory standards org control 
+	iso certs pci reports shared with regulators via iam
+	only aws .. does not cover applications or your org setup
+	
+aws cloudformation
+	automate creation update delete resources
+	declarative
+	cloudformation template json or yaml define infrastructure
+	can do one template for all envs
+	stack: collection of resources managed as single unit
+	stacks are all or nothing (created/destroyed fully)
+	StackSet: create/update/delete stacks with single template
+	
+aws managed grafana
+	graph metric data and log data from numerous resources
+	query/visualize/alert/understand metrics
+	no complex IT integrations
+	multi source, multi account, multi region
+
+aws sagemaker model monitor	
+	continuous monitoring for sagemaker production models
+	model drift reports sent to s3 and/or cloudwatch
+
+aws application migration service	
+	simplifies, expedites migration to cloud 
+	can migrate from physical infra, vmware, hyperv, ec2, vpc and other clouds
+
+aws migration hub
+	single place to discover existing servers, plan migrations, track status of each application migration
+
+aws migration evaluator
+	discovers what a customer has on prem, how its used and how much it costs to operate, and predicts cost on aws
+
+aws proton
+	helps platform/devops engineers
+	define and update infrastructure for self service deployments
+	users create standard vetted templates, turnkey use for developers
+
+aws app runner
+	fully managed service, build deploy run containerized applications without prior container or infrastructure experience
+
+aws data exchange
+	access third party free open data products sourced from academia govertment research and private in cloud
+
+aws x-ray xray
+	provides graphs of system performance and identifies bottlenecks
+	
+summary
+	cloudwatch
+		window into health performance of applications/infrastructure
+		dashboard visual display of metrics and alarms
+		metrics can monitor specific element of an application or resource
+		default everyone has access to free metrics
+		default metrics every 5 minutes, every minute for $$
+		custom metrics can be created time series data points
+		anomaly detection: identify activity outside normal baseline machine learning algorithms
+		alarms implement automatic actions based on thresholds configured
+		alarm states ok alarm insufficient data
+		eventbridge connect applications respond to events as they happen
+		cloudwatch logs centralizes location to house logs from different aws services
+		unified cloudwatch agent collects logs and metric data from ec2
+			best installed via systems manager ssm
+	cloudtrail
+		record/track api calls
+		either by user or aws service
+		good tool for auditing, tracks user time source ip 
+		stored in s3, can also be sent to cloudwatch logs (to trigger alarms etc)
+	aws config
+		record/capture resource changes
+		collate and review data on a specific resource
+		resource history, snapshots
+		integration with sns and cloudtrail
+		meet specification with config rules, check compliancy
+	aws organizations
+		centrally manage and categorize multiple aws accounts
+		maintain env security/compliance/account mgmt
+		deploy with all features or consolidated billing
+		root OU 
+		SCPs service control policy applied to account unit children also impact
+		dont grant permissions, guardrails only
+	vpc flow logs
+		capture ip traffice between network interfaces of vpc resources
+		sent to cloudwatch logs
+		no ec2 classic
+		cant change, only delete/recreate config
+		cant capture dhcp dns destinations default router or nlb -> eni
+		can create for network interface, subnet or vpc
+	
+			

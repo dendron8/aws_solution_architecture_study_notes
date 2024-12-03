@@ -1,0 +1,194 @@
+aws databases
+
+rds
+	relational db 
+	managed service
+	supports mysql mariadb aurora oracle sql server
+	range of compute sizes/types
+	deploy to single az or multi az
+
+multi az
+	secondary instance in different az, acts as failover
+	syncronous duplication between primary/secondary
+	automatic dns failover to point to secondary
+	happens during patching, primary failure, az failure, primary reboot, primary modify
+	
+ec2 over rds
+	if you already have dba for advanced features
+	if you need db not supported by rds 
+	if you need specific os type
+	greater control
+	
+rds over ec2
+	reduce mgmt
+	reduce admin tasks
+	automatic backups (manual is also option)
+	
+rds purchasing options
+	only oracle is byol
+	all other on demand and reserved
+	aurora also serverless
+	
+reserved instances
+	1 or 3 yr term
+	pay upfront/partial/no
+	set time 
+
+db storage options
+	all but aurora use ebs
+	aurora clustered storage, scales automatically
+		
+	backup storage for rds free up to amount of paid storage
+	
+aurora
+	5x faster than mysql, 3x faster than postgres
+	1/10 cost of other dbs
+	up to 15 read replicas
+	automated failover
+	point in time recovery
+	continuous backups to s3
+	encryption at rest - kms customer key
+	encryption in transit - ssl
+	replicate across 3 AZs
+
+	
+backtrack - only for aurora - go back in time on db to recover from error
+cloudwatch can monitor change records
+
+free data transfers for rds
+	into rds
+	out to cloudfront
+	out to ec2 in same az
+not free data transfer
+	out to internet
+	out to region
+	ec2 to rds in different az
+	snapshot to new region (good for dr)
+	
+dynamodb
+	game web mobile iot
+	no db admin fully managed
+	schemaless no need to set up data model
+	secondary - queries not on primary key	
+		global
+		local
+			local secondary index does not support queries outside of the primary key
+	eventual consistency cross az
+	queries less flexible
+	max record size and # of indexes
+	performance based on provisioned througput
+	maintains speed with growth
+	not good for complex queries
+	on demand backup and restore: DynamoDB backups
+	continuous backups with point in time recovery : need to roll back to the moment error occurs
+
+dynamodb streams	
+	captures time ordered sequence of item level modifications, saves to a log (up to 24hrs)
+	exposes api, can be read to process (example: lambda)
+
+dynamodb accelerator dax
+	need microsecond reads heavy io
+	in memory cache 10x speed of dynamo
+	can reduce provisioned read capacity of your dynamo
+	sits inside vpc (dynamo outside)
+	deploy node in each subnet
+	dax client installed on ec2 instance
+	security group open port 8111
+	
+elasticache
+	in memory cache
+	improves read only performance
+	memcached and redis
+	redis better more features
+		backup and restore, snapshots, replication and transactions
+	memcached better for memory consistency increased performance
+	cached node fixes size of network attached ram
+	shard is group of up to 6 nodes
+	redis cluster group of 1-90 shards
+	common use online gaming, data analytics
+	dont use when data persistence is necessary
+	
+amazon neptune
+	graph db service store and navigate relationships of data
+	use cases social network, fraud detection, recommendation engine
+	query with tinkerpop and www consort
+	cluster 1 to many db instances across az
+	neptune storage auto repair use data from other cluster data to fix bad
+	primary replica replica read only 15 max replicas
+	primary failure promote replica
+	connect via endpoints : cluster reader instance
+	
+amazon redshift
+	data warehouse petabytes of data accessible via sql
+	compatible with rds similar to postgresql
+	use case: reporting
+	etl into warehouse
+	cluster core component with redshift engine inside, and db and compute node
+	leader node coordinate comm between clusters
+	node slice partition of compute node
+	connect to redshift odbc jdbc
+	parallel processing, columnar data storage (reduce db io), result caching in leader node
+	integrates with cloudwatch monitor cpu throughput
+	iam roles to s3 data lake
+	
+documentdb
+	runs in vpc
+	can scale compute and storage separately
+	can migrate mongo to here with database migration service
+	similar to neptune - cluster with 1-n dbs cross AZ cluster storage volume
+	up to 16 db instance
+	read replicas
+	connect via endpoints: cluster reader instance
+	primary failure promote replica 
+	single reader enpoint exists with multiple read replicas
+	instance endpoints to point to specific instance
+	automatic backups point in time recovery
+	transaction logs auto stored in s3
+	
+amazon keyspaces for cassandra
+	serverless fully managed
+	unlimited throughput for massive scale extreme performance
+	cluster of nodes - keyspaces manages
+	good for when low latency is essential
+	keyspace - grouping of tables, defines how replicas
+	encryption at rest auto enabled - tls conn required
+	throughput: on-demand (unpredictable), provisioned (predictable workloads)
+	CQL cassandra query language
+	
+	
+amazon quantum ledger database qldb
+	serverless fully managed
+	use case: record financial data over time
+	sha256
+	append only immutable ledger journal for transaction log
+	use case: insurance claim
+	use case: employee records
+	amazon ion documents superset of json structured and unstructured
+	maintains audit history
+	journal storage (hold history of ledger changes) and indexed storage (used to provision tables)
+	qldb streams with amazon kinesis can ingest real time data into dbs
+	can feed journal changes into kinesis data stream
+	
+data lake
+	place to store and collect data
+	schema or schemaless perform analytics on data
+	lake - formless blob
+	warehouse - specialized section of lake to perform operations on
+	good data lake - 
+		storage (s3) 
+		movement (kinesis/direct connect/dms/snowball) 
+		catalog/discovery (metadata - formats, tags.. aws glue) 
+		analytics (kinesis data analytics, athena, quicksights, redshift)
+		predictive (machine learning - sagemaker amis with analytic software available)
+	templates
+	aws lake formation - crawl and catalog
+		give permission token to hit athena/redshift/emr
+		no price but cost for glue/s3/athena/etc
+
+amazon timestream
+	fully managed time series db
+	store and analyze data points
+	integrate with streaming data sources
+		amazon msk
+	continuous analysis of data via sql
+		

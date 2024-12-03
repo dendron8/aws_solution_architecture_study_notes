@@ -1,0 +1,199 @@
+aws storage notes
+
+EFS offers two throughput modes: bursting throughput and provisioned throughput
+deploy EFS mount targets one per availability zone
+Amazon FSx for Lustre shared file system compute intensive workloads
+FSx for windows costs calculated on storage throughput and backup
+
+amazon efs elastic file system
+	linux based file system
+	S3 - object storage - replace entire file, good for load once read many
+		large files, static websites, archive (netflix)
+	ebs - stored in chunks of blocks - best for low latency fast read write, persistent
+		use like computer hard drive
+	efs - file storage, low latency - supports multiple ec2 access at once hierarchy
+		store files accessible to network resources, configure mount point
+		high level of throughput
+		nfs 4.1 and 4.0
+		replicated across availability zones
+		regional, not available in all regions
+	storage classes 
+		standard, infrequent access (IA)
+	efs lifecycle management
+		when enabled, auto move from standard to IA
+		to move back to standard, manual process... copy file to another location
+	performance modes
+		general purpose (7k operations/sec), cloudwatch metric to track ops 
+		max io
+	throughput modes
+		bursting - throughput grows as storage grows
+		provisioned - can burst above throughput (additional cost)
+			does not matter how much storage used, throughput is the same
+	security
+		need allow access to roles
+			CreateFileSystem
+			CreateMountTarget
+			DescribeSubnet
+			CreateNetworkInterface
+			DescribeNetworkInterfaces
+		encryption at rest and in transit
+			must enable, managed by kms
+			efs mount helper can enable encryption in transit
+	import on prem data to efs
+		aws datasync recommended - either direct connect or internet
+			can also move from efs to efs
+	datasync incloud quickstart and scheduler
+		migrate nfs from ec2 to efs in same region
+		replicate nfs from ec2 to different region
+		migrate efs from standard to lifecycle management
+		migrate efs from one performance mode to another
+		replicate efs to another region
+		
+ec2 instance store volumes
+	lives on same physical device
+	ephemeral (temporary) 
+	stopped/terminated ec2, data lost
+	reboot, data remains
+	high io, ideal as cache/buffer
+	not available for all instances
+	
+amazon ebs elastic block store
+	storage to ec2
+	boot faster that instance (ephemeral) store volumes when used as root volume	
+		can also stop/start with ebs - instance store can only be terminated
+	persistent, used for data rapidly changing
+	multiple ebs can attach to an ec2, but no multiple ec2 attach to a single ebs
+		update ebs multi attach now available
+	point in time backups (snapshots)
+		manual or cloudwatch auto
+		stored on s3
+		incremental - only delta
+		can recreate from existing snapshot
+		can copy snapshot from one region to another
+		writes replicated in same availability zone
+	volume types
+		ssd better for smaller blocks (boot volumes, databases/transactional workloads)
+		hd better for high io througput larger blocks of data
+		provisioned iops ssd
+			highest performance
+		throughput opt hdd (no boot volume)
+			big data warehouses log processing
+		cold hdd (no boot volume)
+			lowest cost infrequent access
+	security
+		enable volume encryption (check box)
+			kms used to encrypt 
+		snapshot from encrypted volume also encrypted
+			only for select instance types
+		region setting to encrypt all volumes
+	creating ebs volume
+		during creation of ec2 instance
+			blank or snapshot 
+		in ec2 console
+		in ebs dashboard
+			can choose AZ to attach to ec2
+	not good for temp storage
+	not good for high availability (efs, s3 better)
+	ebs elastic volumes 
+		can change volume type without downtime
+	
+ebs multi attach
+	dependent on type of volume, instance
+	only for provisioned ops ssd io1 io2
+	only for ec2 nitro (virtualized platform/bare metal/no hypervisor needed/byo hypervisor)
+	cant exceed max iops for volume
+	no support for io fencing
+	must be in same AZ 
+	limit 16 linux instances attached
+	windows does not recognize it as shared instance (not recommended)
+	not recommended for xfs/ext4 (use clustered instead: gfs2)
+	
+amazon data lifecycle manager
+	auto create / delete / retention of ebs snapshots and ec2 instances
+	no cost
+	tags required
+	
+amazon fsx
+	for windows
+		native windows file system for aws
+		migrate windows based workloads
+		pay for storage. average storage / month
+			HDD (cheaper), SSD (performant)
+		pay for throughput 
+		pay for single/multi AZ
+		data deduplication (auto storage of duplicate files) no cost
+	for lustre
+		compute intensive machine learning massive datasets 
+		integration with s3
+		burst over direct connect / vpn
+		pay for storage
+		pay for data duplication across AZ
+		no cost for throughput
+		
+aws storage gateway
+	gateway between on prem san/nas/das to s3/glacier
+	types
+		file gateways - store files in s3 file share mount drives as if local share on prem cache
+			pricing based on s3
+		volume gateways
+			stored volume gateway
+				backup local storage volumes to s3 as snapshots
+				mounted as iscsi
+				billed as ebs snapshots
+			cached		
+				primary storage on s3
+				on prem is buffer/cache
+		tape gateway (vtl)
+			backup tape data to s3 to glacier / glacier deep archive
+			virtual tape library
+
+aws datasync 
+	transfer from on prem to aws
+	transfer from aws to aws
+	10gb/sec
+	encryption / data validation
+	flat pricing (per gb)
+	use case: archiving data into cold storage (glacier)
+	use case: implement active data migrations on regular basis
+	use case: hybrid cloud env, need to use aws for data processing then move back
+	supported
+		s3/efs/fsx for windows/snowcone
+		nfs shares/smb shares/object storage
+	supports vpc endpoints
+	built in data transfer network
+	up to 10gb per sec
+	encrypt in transit TLS
+	encrypt at rest using service
+	data validation
+	architecture
+		on prem to aws
+			need agent - put on compatible vm
+			location - endpoint of datasync task
+			task - details of operation
+				integrity, data validate, source, dest, location, filters, log details
+				does not transfer permissions or settings
+		aws to aws
+			no agent, but still location, task
+	
+aws snow
+	move data from dc to aws
+	physical device/hardware
+	transfer outside aws/cloud
+	snowcone - portable 8tb asw datasync battery pack 10gbit
+	snowball - 30-80tb ebs/s3 100gbit cluster rack mount hipaa
+	snowmobile - 100pb entire datacenter
+	
+aws backup
+	manage backups across services, centralized view of backups
+	lifecycle rules to optimize costs
+	can auto backup with storage gateway
+	all logging consolidated
+	uses backup services from other aws resources
+	need backup policies/plans, then assign resources to them
+	can have automated policy enforcement for data protection and compliance
+		good for compliance audit
+	use tags to associate multiple resources
+	restore, cost associated warm vs cold
+
+aws hdfs
+	encrypt data in transit and at rest: hdfs encryption zones with transparent encryption
